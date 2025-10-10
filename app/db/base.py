@@ -1,1 +1,4 @@
-from app.models.player import Player
+from sqlalchemy.orm import declarative_base
+
+Base = declarative_base()
+
