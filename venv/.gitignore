@@ -1,0 +1,13 @@
+# Environnement virtuel
+venv/
+
+# Fichiers de cache Python
+__pycache__/
+*.pyc
+
+# Fichier d’environnement (ne jamais le mettre sur GitHub)
+.env
+
+# Autres
+*.log
+
