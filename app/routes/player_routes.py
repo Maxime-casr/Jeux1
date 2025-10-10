@@ -23,7 +23,8 @@ def register(player: PlayerCreate):
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Erreur serveur: {str(e)}")
+        print("❌ ERREUR REGISTER :", e)   # <--- ajoute cette ligne
+        raise e   # <--- pour afficher l’erreur réelle
 
     finally:
         db.close()

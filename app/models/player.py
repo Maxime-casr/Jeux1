@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String
 from app.db.base import Base
+import uuid
 
 class Player(Base):
     __tablename__ = "players"
