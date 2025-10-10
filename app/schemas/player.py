@@ -9,5 +9,6 @@ class PlayerLogin(BaseModel):
     password: str
     
 class PlayerPseudo(BaseModel):
-    username: str
+    user_id: str
     pseudo: str
+

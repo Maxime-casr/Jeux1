@@ -6,7 +6,6 @@ from app.schemas.player import PlayerCreate, PlayerPseudo
 
 router = APIRouter(prefix="", tags=["players"])
 
-# --- INSCRIPTION ---
 @router.post("/register")
 def register(player: PlayerCreate):
     db: Session = SessionLocal()
@@ -18,8 +17,9 @@ def register(player: PlayerCreate):
         new_player = Player(username=player.username, password=player.password)
         db.add(new_player)
         db.commit()
+        db.refresh(new_player)
 
-        return {"message": "✅ Inscription réussie"}
+        return {"message": "✅ Inscription réussie", "user_id": new_player.user_id}
 
     except Exception as e:
         db.rollback()
@@ -29,7 +29,7 @@ def register(player: PlayerCreate):
         db.close()
 
 
-# --- CONNEXION ---
+
 @router.post("/login")
 def login(player: PlayerCreate):
     db: Session = SessionLocal()
@@ -43,24 +43,24 @@ def login(player: PlayerCreate):
         if not user:
             raise HTTPException(status_code=401, detail="Identifiants invalides")
 
-        return {"message": "✅ Connexion réussie", "player": user.username}
+        return {"user_id": user.user_id}
 
     finally:
         db.close()
+
         
-# --- AJOUT / MODIFICATION DU PSEUDO ---
 @router.post("/setnickname")
 def set_nickname(data: PlayerPseudo):
     db: Session = SessionLocal()
     try:
-        user = db.query(Player).filter(Player.username == data.username).first()
+        user = db.query(Player).filter(Player.user_id == data.user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="Utilisateur introuvable")
 
         user.pseudo = data.pseudo
         db.commit()
 
-        return {"message": f"✅ Pseudo '{data.pseudo}' enregistré pour {data.username}"}
+        return {"message": f"✅ Pseudo '{data.pseudo}' enregistré pour {user.username}"}
 
     except Exception as e:
         db.rollback()
@@ -68,3 +68,4 @@ def set_nickname(data: PlayerPseudo):
 
     finally:
         db.close()
+
