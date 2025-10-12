@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, JSON
 from app.db.base import Base
 import uuid
 
@@ -10,4 +10,12 @@ class Player(Base):
     username = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
     pseudo = Column(String, nullable=True)
+    
+    coins = Column(Integer, default=0)
+    diamonds = Column(Integer, default=0)
+    level = Column(Integer, default=1)
+    
+    unlocked_characters = Column(JSON, default=list)
+    spell_levels = Column(JSON, default = list)
+
 
