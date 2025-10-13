@@ -2,9 +2,34 @@ from fastapi import APIRouter, HTTPException
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.models.player import Player
-from app.schemas.player import PlayerCreate, PlayerPseudo
+from app.schemas.player import PlayerCreate, PlayerPseudo, PlayerSaveData
 
 router = APIRouter(prefix="", tags=["players"])
+
+@router.post("/save")
+def save_player_data(data: PlayerSaveData):
+    db: Session = SessionLocal()
+    try:
+        user = db.query(Player).filter(Player.user_id == data.user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+
+        # Mise à jour des champs
+        user.coins = data.coins
+        user.diamonds = data.diamonds
+        user.level = data.level
+        user.unlocked_characters = data.unlocked_characters
+        user.spell_levels = data.spell_levels
+
+        db.commit()
+        return {"message": "✅ Données sauvegardées avec succès"}
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erreur serveur: {str(e)}")
+
+    finally:
+        db.close()
 
 @router.post("/register")
 def register(player: PlayerCreate):

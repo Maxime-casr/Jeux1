@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import List, Dict
 
 class PlayerCreate(BaseModel):
     username: str
@@ -12,3 +13,10 @@ class PlayerPseudo(BaseModel):
     user_id: str
     pseudo: str
 
+class PlayerSaveData(BaseModel):
+    user_id: str
+    coins: int
+    diamonds: int
+    level: int
+    unlocked_characters: List[int]
+    spell_levels: List[Dict]
