@@ -6,6 +6,29 @@ from app.schemas.player import PlayerCreate, PlayerPseudo, PlayerSaveData
 
 router = APIRouter(prefix="", tags=["players"])
 
+@router.get("/getdata/{user_id}")
+def get_player_data(user_id: str):
+    db: Session = SessionLocal()
+    try:
+        user = db.query(Player).filter(Player.user_id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+
+        return {
+            "user_id": user.user_id,
+            "username": user.username,
+            "pseudo": user.pseudo,
+            "coins": user.coins,
+            "diamonds": user.diamonds,
+            "level": user.level,
+            "unlocked_characters": user.unlocked_characters,
+            "spell_levels": user.spell_levels,
+        }
+
+    finally:
+        db.close()
+
+
 @router.post("/save")
 def save_player_data(data: PlayerSaveData):
     db: Session = SessionLocal()
