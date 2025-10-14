@@ -18,5 +18,5 @@ class PlayerSaveData(BaseModel):
     coins: int
     diamonds: int
     level: int
-    unlocked_characters: List[int]
+    unlocked_characters: List[str]
     spell_levels: List[Dict]
