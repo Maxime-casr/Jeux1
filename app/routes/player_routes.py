@@ -1,15 +1,27 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.models.player import Player
 from app.schemas.player import PlayerCreate, PlayerPseudo, PlayerSaveData
+from app.core.security import create_access_token, verify_token
 
 router = APIRouter(prefix="", tags=["players"])
 
+# === LECTURE DES DONNÉES DU JOUEUR ===
 @router.get("/getdata/{user_id}")
-def get_player_data(user_id: str):
+def get_player_data(user_id: str, authorization: str = Header(None)):
     db: Session = SessionLocal()
     try:
+        # Vérification du token
+        if not authorization or not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Token manquant")
+        token = authorization.split(" ")[1]
+        payload = verify_token(token)
+
+        # Vérifie que le user_id du token correspond à celui demandé
+        if payload["user_id"] != user_id:
+            raise HTTPException(status_code=403, detail="Accès non autorisé")
+
         user = db.query(Player).filter(Player.user_id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="Utilisateur introuvable")
@@ -29,15 +41,25 @@ def get_player_data(user_id: str):
         db.close()
 
 
+# === SAUVEGARDE DES DONNÉES ===
 @router.post("/save")
-def save_player_data(data: PlayerSaveData):
+def save_player_data(data: PlayerSaveData, authorization: str = Header(None)):
     db: Session = SessionLocal()
     try:
+        # Vérification du token
+        if not authorization or not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Token manquant")
+        token = authorization.split(" ")[1]
+        payload = verify_token(token)
+
+        # Vérifie que le joueur sauvegarde ses propres données
+        if payload["user_id"] != data.user_id:
+            raise HTTPException(status_code=403, detail="Tentative de triche détectée")
+
         user = db.query(Player).filter(Player.user_id == data.user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="Utilisateur introuvable")
 
-        # Mise à jour des champs
         user.coins = data.coins
         user.diamonds = data.diamonds
         user.level = data.level
@@ -54,6 +76,8 @@ def save_player_data(data: PlayerSaveData):
     finally:
         db.close()
 
+
+# === INSCRIPTION ===
 @router.post("/register")
 def register(player: PlayerCreate):
     db: Session = SessionLocal()
@@ -71,14 +95,14 @@ def register(player: PlayerCreate):
 
     except Exception as e:
         db.rollback()
-        print("❌ ERREUR REGISTER :", e)   # <--- ajoute cette ligne
-        raise e   # <--- pour afficher l’erreur réelle
+        print("❌ ERREUR REGISTER :", e)
+        raise e
 
     finally:
         db.close()
 
 
-
+# === CONNEXION ===
 @router.post("/login")
 def login(player: PlayerCreate):
     db: Session = SessionLocal()
@@ -92,16 +116,19 @@ def login(player: PlayerCreate):
         if not user:
             raise HTTPException(status_code=401, detail="Identifiants invalides")
 
-        return {"user_id": user.user_id}
+        token = create_access_token({"user_id": user.user_id, "username": user.username})
+        return {"user_id": user.user_id, "access_token": token}
 
     finally:
         db.close()
 
-        
+
+# === CHANGEMENT DE PSEUDO ===
 @router.post("/setnickname")
 def set_nickname(data: PlayerPseudo):
     db: Session = SessionLocal()
     try:
+
         user = db.query(Player).filter(Player.user_id == data.user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="Utilisateur introuvable")
@@ -117,4 +144,3 @@ def set_nickname(data: PlayerPseudo):
 
     finally:
         db.close()
-
