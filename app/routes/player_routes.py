@@ -1,30 +1,38 @@
 from fastapi import APIRouter, HTTPException, Header
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
-from app.models.player import Player
+from app.models.player import Player, Hero, HeroUnlocked, SpellLevel
 from app.schemas.player import PlayerCreate, PlayerPseudo, PlayerSaveData
 from app.core.security import create_access_token, verify_token
 
 router = APIRouter(prefix="", tags=["players"])
 
-# === LECTURE DES DONNÉES DU JOUEUR ===
 @router.get("/getdata/{user_id}")
 def get_player_data(user_id: str, authorization: str = Header(None)):
     db: Session = SessionLocal()
     try:
-        # Vérification du token
         if not authorization or not authorization.startswith("Bearer "):
             raise HTTPException(status_code=401, detail="Token manquant")
         token = authorization.split(" ")[1]
         payload = verify_token(token)
 
-        # Vérifie que le user_id du token correspond à celui demandé
         if payload["user_id"] != user_id:
             raise HTTPException(status_code=403, detail="Accès non autorisé")
 
         user = db.query(Player).filter(Player.user_id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+
+        # Récupération des héros débloqués
+        unlocked_heroes = [
+            h.hero.hero_id for h in user.heroes_unlocked
+        ]
+
+        # Récupération des sorts
+        spells = [
+            {"spell_id": s.spell_id, "spell_lvl": s.spell_lvl}
+            for s in user.spells
+        ]
 
         return {
             "user_id": user.user_id,
@@ -33,12 +41,13 @@ def get_player_data(user_id: str, authorization: str = Header(None)):
             "coins": user.coins,
             "diamonds": user.diamonds,
             "level": user.level,
-            "unlocked_characters": user.unlocked_characters,
-            "spell_levels": user.spell_levels,
+            "unlocked_characters": unlocked_heroes,
+            "spell_levels": spells
         }
 
     finally:
         db.close()
+
 
 
 # === SAUVEGARDE DES DONNÉES ===
@@ -144,3 +153,53 @@ def set_nickname(data: PlayerPseudo):
 
     finally:
         db.close()
+
+@router.post("/buy_character")
+def buy_character(data: dict):
+    db: Session = SessionLocal()
+    try:
+        user = db.query(Player).filter(Player.user_id == data["user_id"]).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+
+        hero = db.query(Hero).filter(Hero.hero_id == data["character"]).first()
+        if not hero:
+            raise HTTPException(status_code=404, detail="Héros introuvable")
+
+        # Vérifie s’il a déjà le héros
+        already = (
+            db.query(HeroUnlocked)
+            .filter_by(user_id=user.user_id, hero_id=hero.hero_id)
+            .first()
+        )
+        if already:
+            return {"error": "already_unlocked"}
+
+        # Vérifie s’il a assez d’argent
+        if user.coins < hero.hero_prix:
+            return {"error": "not_enough_coins"}
+
+        # Mise à jour
+        user.coins -= hero.hero_prix
+        new_unlock = HeroUnlocked(user_id=user.user_id, hero_id=hero.hero_id)
+        db.add(new_unlock)
+
+        db.commit()
+
+        # Recalcule la liste des héros débloqués
+        unlocked = [h.hero.hero_id for h in user.heroes_unlocked]
+
+        return {
+            "message": f"✅ {hero.hero_name} acheté pour {hero.hero_prix} pièces",
+            "coins": user.coins,
+            "unlocked_characters": unlocked,
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erreur serveur : {e}")
+
+    finally:
+        db.close()
+
+
