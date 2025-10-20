@@ -201,6 +201,7 @@ def buy_character(data: dict):
 
     except Exception as e:
         db.rollback()
+        print("❌ ERREUR /buy_character :", e)
         raise HTTPException(status_code=500, detail=f"Erreur serveur : {str(e)}")
     finally:
         db.close()
