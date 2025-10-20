@@ -166,7 +166,6 @@ def buy_character(data: dict):
         if not hero:
             raise HTTPException(status_code=404, detail="Héros introuvable")
 
-        # Vérifie s’il a déjà le héros
         already = (
             db.query(HeroUnlocked)
             .filter_by(user_id=user.user_id, hero_id=hero.hero_id)
@@ -175,19 +174,24 @@ def buy_character(data: dict):
         if already:
             return {"error": "already_unlocked"}
 
-        # Vérifie s’il a assez d’argent
         if user.coins < hero.hero_prix:
             return {"error": "not_enough_coins"}
 
-        # Mise à jour
+        # Ajout du héros débloqué
         user.coins -= hero.hero_prix
         new_unlock = HeroUnlocked(user_id=user.user_id, hero_id=hero.hero_id)
         db.add(new_unlock)
-
         db.commit()
+        db.refresh(user)  # 👈 force la relation à se mettre à jour
+        db.refresh(new_unlock)
 
-        # Recalcule la liste des héros débloqués
-        unlocked = [h.hero.hero_id for h in user.heroes_unlocked]
+        # Récupère les héros débloqués correctement après commit
+        unlocked = [
+            h.hero.hero_id for h in db.query(HeroUnlocked)
+            .filter_by(user_id=user.user_id)
+            .join(Hero)
+            .all()
+        ]
 
         return {
             "message": f"✅ {hero.hero_name} acheté pour {hero.hero_prix} pièces",
@@ -197,9 +201,9 @@ def buy_character(data: dict):
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Erreur serveur : {e}")
-
+        raise HTTPException(status_code=500, detail=f"Erreur serveur : {str(e)}")
     finally:
         db.close()
+
 
 
