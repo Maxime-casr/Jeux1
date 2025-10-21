@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Header
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
-from app.models.player import Player, Hero, HeroUnlocked, SpellLevel
+from app.models.player import Player, Hero, HeroUnlocked, SpellLevel, Spell
 from app.schemas.player import PlayerCreate, PlayerPseudo, PlayerSaveData
 from app.core.security import create_access_token, verify_token
 
@@ -166,6 +166,7 @@ def buy_character(data: dict):
         if not hero:
             raise HTTPException(status_code=404, detail="Héros introuvable")
 
+        # Vérifie si déjà débloqué
         already = (
             db.query(HeroUnlocked)
             .filter_by(user_id=user.user_id, hero_id=hero.hero_id)
@@ -174,18 +175,35 @@ def buy_character(data: dict):
         if already:
             return {"error": "already_unlocked"}
 
+        # Vérifie les pièces
         if user.coins < hero.hero_prix:
             return {"error": "not_enough_coins"}
 
-        # Ajout du héros débloqué
+        # 🔹 Débloque le héros
         user.coins -= hero.hero_prix
         new_unlock = HeroUnlocked(user_id=user.user_id, hero_id=hero.hero_id)
         db.add(new_unlock)
-        db.commit()
-        db.refresh(user)  # 👈 force la relation à se mettre à jour
-        db.refresh(new_unlock)
 
-        # Récupère les héros débloqués correctement après commit
+        # 🔹 Récupère les sorts de base du héros
+        base_spells = (
+            db.query(Spell)
+            .filter(Spell.hero_id == hero.hero_id, Spell.spell_de_base == True)
+            .all()
+        )
+
+        # 🔹 Ajoute automatiquement les sorts de base au joueur
+        for spell in base_spells:
+            spell_level = SpellLevel(
+                user_id=user.user_id,
+                spell_id=spell.spell_id,
+                spell_lvl=1
+            )
+            db.add(spell_level)
+
+        db.commit()
+        db.refresh(user)
+
+        # Récupère la liste mise à jour des héros débloqués
         unlocked = [
             h.hero.hero_id for h in db.query(HeroUnlocked)
             .filter_by(user_id=user.user_id)
@@ -194,7 +212,7 @@ def buy_character(data: dict):
         ]
 
         return {
-            "message": f"✅ {hero.hero_name} acheté pour {hero.hero_prix} pièces",
+            "message": f"✅ {hero.hero_name} acheté pour {hero.hero_prix} pièces. Sorts de base ajoutés.",
             "coins": user.coins,
             "unlocked_characters": unlocked,
         }
@@ -205,6 +223,7 @@ def buy_character(data: dict):
         raise HTTPException(status_code=500, detail=f"Erreur serveur : {str(e)}")
     finally:
         db.close()
+
 
 
 

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, JSON, ForeignKey
+from sqlalchemy import Column, Integer, String, JSON, ForeignKey,Boolean
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 import uuid
@@ -18,7 +18,7 @@ class Player(Base):
     level = Column(Integer, default=1)
 
 
-    spells = relationship("SpellLevel", back_populates="player", cascade="all, delete-orphan")
+    spells_levels = relationship("SpellLevel", back_populates="player", cascade="all, delete-orphan")
     heroes_unlocked = relationship("HeroUnlocked",back_populates="player",cascade="all, delete-orphan")
     
 class HeroUnlocked(Base):
@@ -38,10 +38,11 @@ class SpellLevel(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(String, ForeignKey("players.user_id"), nullable=False, index=True)
-    spell_id = Column(String, nullable=False, index=True)
+    spell_id = Column(String, ForeignKey("spell.spell_id"), nullable=False, index=True)
     spell_lvl = Column(Integer, default=1)
 
-    player = relationship("Player", back_populates="spells")
+    player = relationship("Player", back_populates="spells_levels")
+    spell = relationship("Spell")
 
 
 class Hero(Base):
@@ -51,6 +52,16 @@ class Hero(Base):
     hero_id = Column(String, unique=True, nullable=False)
     hero_name = Column(String, nullable=True)
     hero_prix = Column(Integer, default=0)
+    
+class Spell(Base):
+    __tablename__ = "spell"
+
+    id = Column(Integer, primary_key=True, index=True)
+    spell_id = Column(String, unique=True, nullable=False)
+    hero_id = Column(String, ForeignKey("hero.hero_id"), nullable=False, index=True)
+    spell_name = Column(String, nullable=True)
+    spell_de_base = Column(Boolean, default=False)
+
 
     
 
