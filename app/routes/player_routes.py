@@ -31,7 +31,7 @@ def get_player_data(user_id: str, authorization: str = Header(None)):
         # Récupération des sorts
         spells = [
             {"spell_id": s.spell_id, "spell_lvl": s.spell_lvl}
-            for s in user.spells
+            for s in user.spells_levels
         ]
 
         return {
